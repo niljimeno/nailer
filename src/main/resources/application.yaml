@@ -1,0 +1,4 @@
+nailer:
+  data-directory: /var/git/nailer
+  auth:
+    session-ttl: 1h
