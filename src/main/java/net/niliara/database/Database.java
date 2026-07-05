@@ -8,10 +8,12 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Optional;
 
+import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 
 import org.springframework.stereotype.Service;
 
+import net.niliara.dto.Credentials;
 import net.niliara.dto.DataDirectory;
 
 @Service
@@ -23,16 +25,15 @@ public class Database {
         this.dataDirectory = dataDirectory;
     }
 
-    public void connect() throws SQLException {
-        String url = "jdbc:sqlite:" + dataDirectory.dataDirectory();
-        this.connection = DriverManager.getConnection(url, null, null);
+    @PostConstruct
+    public void init() throws SQLException {
+        connect();
+        migrate();
     }
 
-    @PreDestroy
-    public void close() throws SQLException {
-        if (this.connection != null) {
-            this.connection.close();
-        }
+    public void connect() throws SQLException {
+        String url = "jdbc:sqlite:" + dataDirectory.dataDirectory().resolve("my.db");
+        this.connection = DriverManager.getConnection(url, null, null);
     }
 
     public void migrate() throws SQLException {
@@ -49,16 +50,19 @@ public class Database {
         }
     }
 
-    public void createUser() throws SQLException {
-        createUser("user", "1234");
+    @PreDestroy
+    public void close() throws SQLException {
+        if (this.connection != null) {
+            this.connection.close();
+        }
     }
 
-    public void createUser(String username, String password) throws SQLException {
+    public void createUser(Credentials credentials) throws SQLException {
         String sql = "insert into users (username, password) values (?, ?)";
 
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
-            statement.setString(1, username);
-            statement.setString(2, password);
+            statement.setString(1, credentials.username());
+            statement.setString(2, credentials.password());
             statement.executeUpdate();
         }
     }
@@ -72,7 +76,7 @@ public class Database {
         }
     }
 
-    public Optional<String> getUserPassword(String username) throws SQLException {
+    public Optional<String> getUserPassword(String username) {
         String sql = "select password from users where username = ?";
 
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
@@ -85,6 +89,8 @@ public class Database {
 
                 return Optional.empty();
             }
+        } catch (SQLException exception) {
+            return Optional.empty();
         }
     }
 }

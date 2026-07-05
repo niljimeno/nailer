@@ -1,10 +1,11 @@
 package net.niliara.controller;
 
-import net.niliara.dto.LoginRequest;
+import net.niliara.dto.Credentials;
 import net.niliara.service.AuthService;
 
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.ResponseCookie;
+import java.util.Map;
+import java.util.Optional;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -21,34 +22,31 @@ public class AuthController {
         this.authService = authService;
     }
 
-    @PostMapping("/session")
-    public ResponseEntity<String> createSession(@RequestBody LoginRequest login) {
-        String token = authService.createSessionToken(login.username());
+    @PostMapping("/login")
+    public ResponseEntity<Map<String, String>> logIn(@RequestBody Credentials credentials) {
+        Optional<String> token = authService.logIn(credentials);
+        if (token.isEmpty()) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "invalid username or password"));
+        }
 
-        ResponseCookie cookie = ResponseCookie.from("session", token)
-                .httpOnly(true)
-                .secure(false)
-                .sameSite("Lax")
-                .path("/")
-                .build();
-
-        return ResponseEntity.ok()
-                .header(HttpHeaders.SET_COOKIE, cookie.toString())
-                .body("session created");
+        return ResponseEntity.ok(Map.of("token", token.get()));
     }
 
-    @DeleteMapping("/session")
-    public ResponseEntity<String> removeSession() {
-        ResponseCookie cookie = ResponseCookie.from("session", "")
-                .httpOnly(true)
-                .secure(false)
-                .sameSite("Lax")
-                .path("/")
-                .maxAge(0)
-                .build();
+    @PostMapping("/register")
+    public ResponseEntity<Map<String, String>> register(@RequestBody Credentials credentials) {
+        boolean success = authService.register(credentials);
+        if (success == false) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Could not create new user"));
+        }
 
         return ResponseEntity.ok()
-                .header(HttpHeaders.SET_COOKIE, cookie.toString())
-                .body("session removed");
+                .body(Map.of("ok", "User created"));
+    }
+
+    @DeleteMapping("/delete")
+    public ResponseEntity<Map<String, String>> removeSession() {
+        return ResponseEntity.ok(Map.of("message", "session removed"));
     }
 }
