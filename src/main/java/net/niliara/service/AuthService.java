@@ -9,9 +9,9 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.sql.SQLException;
-import java.util.Date;
 import java.util.HexFormat;
 import java.util.Optional;
+import java.util.Date;
 
 import javax.crypto.SecretKey;
 import org.springframework.stereotype.Service;
@@ -74,11 +74,13 @@ public class AuthService {
         long hour = 1000 * 60 * 60;
         Date expirationDate = new Date(timeNow + 10 * hour);
 
-        return Jwts.builder()
+        String token = Jwts.builder()
                 .subject(username)
                 .signWith(key)
                 .expiration(expirationDate)
                 .compact();
+
+        return token;
     }
 
     private String hash(String input) throws IllegalStateException {
