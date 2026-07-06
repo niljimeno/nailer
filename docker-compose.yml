@@ -1,0 +1,26 @@
+# development-only docker compose file
+# with hot-reload capabilities
+
+services:
+  app:
+    image: maven:3.9-eclipse-temurin-17
+    working_dir: /app
+    volumes:
+      - .:/app
+      - maven-cache:/root/.m2
+      - nailer-data:/var/git/nailer
+    ports:
+      - "8080:8080"
+    command: mvn spring-boot:run
+    develop:
+      watch:
+        - action: sync+restart
+          path: ./src
+          target: /app/src
+        - action: sync+restart
+          path: ./pom.xml
+          target: /app/pom.xml
+
+volumes:
+  maven-cache:
+  nailer-data:
