@@ -1,65 +1,89 @@
 package net.niliara.controller;
 
 import java.io.IOException;
-import java.util.List;
+import java.util.Optional;
 
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import net.niliara.dto.DataDirectory;
 import net.niliara.dto.RepositoryTree;
+import net.niliara.dto.Credentials;
+import net.niliara.dto.RepositoryId;
 import net.niliara.dto.RepositoryInfo;
 import net.niliara.service.GitHttpService;
+import net.niliara.service.RepositoryTreeService;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/u/{user}/r")
+@RequestMapping("/u/{username}/r")
 @SecurityRequirement(name = "bearerAuth")
 public class RepositoryController {
-    private final DataDirectory dataDirectory;
     private final GitHttpService gitHttp;
+    private final RepositoryTreeService treeService;
 
     public RepositoryController(
-            DataDirectory dataDirectory,
-            GitHttpService gitHttpService) {
-        this.dataDirectory = dataDirectory;
+            GitHttpService gitHttpService,
+            RepositoryTreeService treeService) {
         this.gitHttp = gitHttpService;
+        this.treeService = treeService;
     }
 
-    @GetMapping("/{repository}")
-    public ResponseEntity<RepositoryInfo> view() {
-        RepositoryTree tree = new RepositoryTree.Directory(
-                "master",
-                "",
-                List.of(new RepositoryTree.Leaf("README.md", "no description")));
+    @GetMapping("/{repositoryName}")
+    public ResponseEntity<RepositoryInfo> view(@ModelAttribute RepositoryId identifier) {
+        Optional<RepositoryTree> tree = treeService.getRepositoryTree(identifier);
+        if (tree.isEmpty()) {
+            return ResponseEntity.status(500).build();
+        }
 
-        RepositoryInfo info = new RepositoryInfo("name", "desc", tree);
+        RepositoryInfo info = new RepositoryInfo(identifier, tree.get());
         return ResponseEntity.ok()
                 .body(info);
     }
 
-    @GetMapping("/{repository}/info/refs")
+    @GetMapping("/{repositoryName}/info/refs")
     public void cloneRefs(
-            @PathVariable String user,
-            @PathVariable String repository,
+            @ModelAttribute RepositoryId identifier,
             HttpServletRequest request,
             HttpServletResponse response) throws IOException {
-        gitHttp.pipe(user, repository, "/info/refs", request, response);
+
+        if ("service=git-receive-pack".equals(request.getQueryString())) {
+            Optional<Credentials> credentials = gitHttp.getUserCredentials(request);
+
+            if (credentials.isEmpty() || !credentials.get().password().equals("hello")) {
+                gitHttp.Unauthorize(response);
+                return;
+            }
+        }
+
+        gitHttp.pipe(identifier, "/info/refs", request, response);
     }
 
-    @PostMapping("/{repository}/git-upload-pack")
+    @PostMapping("/{repositoryName}/git-upload-pack")
     public void clonePack(
-            @PathVariable String user,
-            @PathVariable String repository,
+            @ModelAttribute RepositoryId identifier,
             HttpServletRequest request,
             HttpServletResponse response) throws IOException {
-        gitHttp.pipe(user, repository, "/git-upload-pack", request, response);
+        gitHttp.pipe(identifier, "/git-upload-pack", request, response);
+    }
+
+    @PostMapping("/{repositoryName}/git-receive-pack")
+    public void pushPack(
+            @ModelAttribute RepositoryId identifier,
+            HttpServletRequest request,
+            HttpServletResponse response) throws IOException {
+        Optional<Credentials> credentials = gitHttp.getUserCredentials(request);
+        if (credentials.isEmpty() || !credentials.get().password().equals("hello")) {
+            gitHttp.Unauthorize(response);
+            return;
+        }
+
+        gitHttp.pipe(identifier, "/git-receive-pack", request, response);
     }
 }

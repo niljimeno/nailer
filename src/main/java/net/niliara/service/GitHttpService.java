@@ -4,13 +4,17 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.Map;
+import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import net.niliara.dto.Credentials;
 import net.niliara.dto.DataDirectory;
+import net.niliara.dto.RepositoryId;
 
 @Service
 public class GitHttpService {
@@ -21,8 +25,7 @@ public class GitHttpService {
     }
 
     public void pipe(
-            String user,
-            String repository,
+            RepositoryId identifier,
             String path,
             HttpServletRequest request,
             HttpServletResponse response) throws IOException {
@@ -32,9 +35,9 @@ public class GitHttpService {
         environment.put("GIT_PROJECT_ROOT", dataDirectory.dataDirectory().toString());
         environment.put("GIT_HTTP_EXPORT_ALL", "");
         environment.put("REQUEST_METHOD", request.getMethod());
-        environment.put("PATH_INFO", "/" + user + "/" + repository + path);
+        environment.put("PATH_INFO", "/" + identifier.username() + "/" + identifier.repositoryName() + path);
         environment.put("QUERY_STRING", request.getQueryString() == null ? "" : request.getQueryString());
-        environment.put("REMOTE_USER", user);
+        environment.put("REMOTE_USER", identifier.username());
 
         if (request.getContentType() != null) {
             environment.put("CONTENT_TYPE", request.getContentType());
@@ -89,5 +92,32 @@ public class GitHttpService {
         }
 
         return headers.toByteArray();
+    }
+
+    public Optional<Credentials> getUserCredentials(HttpServletRequest request) {
+        String authorization = request.getHeader("Authorization");
+        String credentials = "";
+        if (authorization != null && authorization.startsWith("Basic ")) {
+            try {
+                credentials = new String(Base64.getDecoder().decode(authorization.substring(6)),
+                        StandardCharsets.UTF_8);
+            } catch (IllegalArgumentException e) {
+                return Optional.empty();
+            }
+        }
+
+        int separator = credentials.indexOf(":");
+        if (separator < 0) {
+            return Optional.empty();
+        }
+
+        return Optional.of(new Credentials(
+                credentials.substring(0, separator),
+                credentials.substring(separator + 1)));
+    }
+
+    public void Unauthorize(HttpServletResponse response) {
+        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        response.setHeader("WWW-Authenticate", "Basic realm=\"nailer\"");
     }
 }

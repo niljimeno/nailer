@@ -1,7 +1,6 @@
 package net.niliara.dto;
 
 public record RepositoryInfo(
-        String name,
-        String description,
+        RepositoryId identifier,
         RepositoryTree tree) {
 };

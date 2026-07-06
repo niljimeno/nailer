@@ -1,23 +1,20 @@
 package net.niliara.dto;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public sealed interface RepositoryTree
-        permits RepositoryTree.Directory, RepositoryTree.Leaf {
+        permits RepositoryTree.Node, RepositoryTree.Leaf {
 
     String name();
 
-    String path();
-
-    record Directory(
+    record Node(
             String name,
-            String path,
-            List<RepositoryTree> children) implements RepositoryTree {
+            ArrayList<RepositoryTree> children) implements RepositoryTree {
     }
 
     record Leaf(
-            String name,
-            String path) implements RepositoryTree {
+            String name) implements RepositoryTree {
     }
 }
 

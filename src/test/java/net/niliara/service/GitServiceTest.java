@@ -4,6 +4,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
+import net.niliara.dto.RepositoryId;
+
 @SpringBootTest
 class GitServiceTest {
     @Autowired
@@ -11,6 +13,6 @@ class GitServiceTest {
 
     @Test
     void initialiseRepository() throws Exception {
-        gitService.initialiseRespository("niljimeno", "arguments");
+        gitService.initialiseRespository(new RepositoryId("niljimeno", "arguments"));
     }
 }
